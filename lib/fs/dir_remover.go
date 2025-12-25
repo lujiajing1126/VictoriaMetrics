@@ -139,13 +139,15 @@ func mustRemovePathWithRetry(path string) {
 
 	delay := initialDelay
 	var lastErr error
+	startTime := time.Now()
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		err := os.Remove(path)
 		if err == nil {
 			// Successfully removed
 			if attempt > 0 {
-				logger.Infof("successfully removed %q after %d attempts", path, attempt+1)
+				elapsed := time.Since(startTime)
+				logger.Infof("successfully removed %q after %d retries in %v (initial attempt + %d retries)", path, attempt, elapsed, attempt)
 			}
 			return
 		}
@@ -161,12 +163,12 @@ func mustRemovePathWithRetry(path string) {
 		// Check if the directory contains NFS temporary files
 		nfsFiles := checkForNFSTempFiles(path)
 		if len(nfsFiles) > 0 {
-			logger.Warnf("cannot remove %q on attempt %d/%d: directory contains NFS temporary files: %v; will retry after %v",
+			logger.Warnf("cannot remove %q on attempt %d/%d: directory contains NFS temporary files: %v; will retry in %v",
 				path, attempt+1, maxRetries, nfsFiles, delay)
 		} else {
 			// Directory not empty but no .nfs* files found - check what's there
 			entries := listDirEntries(path)
-			logger.Warnf("cannot remove %q on attempt %d/%d: directory not empty, contains: %v; will retry after %v",
+			logger.Warnf("cannot remove %q on attempt %d/%d: directory not empty, contains: %v; will retry in %v",
 				path, attempt+1, maxRetries, entries, delay)
 		}
 
@@ -181,9 +183,10 @@ func mustRemovePathWithRetry(path string) {
 	}
 
 	// All retries exhausted
+	elapsed := time.Since(startTime)
 	entries := listDirEntries(path)
-	logger.Panicf("FATAL: cannot remove %q after %d attempts: %s; directory still contains: %v",
-		path, maxRetries, lastErr, entries)
+	logger.Panicf("FATAL: cannot remove %q after %d attempts over %v: %s; directory still contains: %v",
+		path, maxRetries, elapsed, lastErr, entries)
 }
 
 // isDirectoryNotEmptyError checks if the error indicates that a directory is not empty.

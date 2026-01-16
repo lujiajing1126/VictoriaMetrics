@@ -138,6 +138,9 @@ func mustMkdir(path string) {
 // MustClose must close the given file f.
 func MustClose(f *os.File) {
 	fname := f.Name()
+	if err := f.Sync(); err != nil {
+		logger.Panicf("FATAL: cannot sync %q: %s", fname, err)
+	}
 	if err := f.Close(); err != nil {
 		logger.Panicf("FATAL: cannot close %q: %s", fname, err)
 	}
